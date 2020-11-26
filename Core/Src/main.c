@@ -41,6 +41,7 @@
 //Synths Functions
 #include "Oscillator.h"
 #include "Mixer.h"
+#include "Envelope.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -79,7 +80,7 @@ TIM_HandleTypeDef htim2;
 //Output Frequency (for test)
 #define F_OUT		500.0f
 //Output Gain set such that ears dont bleed
-#define G_OUT		0.05f
+#define G_OUT		0.3f
 #define TRANCHES_MAX 2
 
 /* USER CODE END PV */
@@ -114,12 +115,13 @@ int Exec_flg;
  */
 int main(void) {
 	/* USER CODE BEGIN 1 */
-	float sample_dt;
-	uint16_t sample_N;
+	//float sample_dt;
+	//uint16_t sample_N;
 	float frequency;
+	int BP;
 
 	//Synthesizer variables
-	float OutputValue1, OutputValue2, OutputValue3 ;
+	float OutputValue1, OutputValue3, OutputValue4;
 
 	//Init Exec_flg
 	Exec_flg = 0;
@@ -127,30 +129,34 @@ int main(void) {
 	//Init DAC Value
 	myDacValue = 0;
 
-	sample_dt = F_OUT / F_SAMPLE;
-	sample_N = F_SAMPLE / F_OUT;
+	//sample_dt = F_OUT / F_SAMPLE;
+	//sample_N = F_SAMPLE / F_OUT;
 	frequency = F_OUT / F_SAMPLE;
 
 	//Parameters and Memory for VCO 1
 	OscillatorParam_t Param1;
 	Param1.Alpha = 1;
-	Param1.WaveType = 2;
+	Param1.WaveType = SAWTOOTH;
 	OscillatorMem_t Mem1;
 	Mem1.Compteur = 0;
 	Mem1.Frequency = F_OUT / F_SAMPLE;
 
-	//Parameters and Memory for VCO 2
-	OscillatorParam_t Param2;
-	Param1.Alpha = 0.3;
-	Param1.WaveType = 4;
-	OscillatorMem_t Mem2;
-	Mem1.Compteur = 0;
-	Mem1.Frequency = 3*F_OUT / F_SAMPLE;
-
 	//Tranche Structures
 	Tranche_t Tranches[TRANCHES_MAX];
-	Tranches[0].Gain = 0.7;
-	Tranches[1].Gain = 0.5;
+	Tranches[0].Gain = 0.9;
+
+	//Enveloppe Structure Memoire
+	Envelope_Mem_t EnvMem;
+	EnvMem.Compteur = 0;
+	EnvMem.Phase = OFF;
+	EnvMem.Note = 0;
+
+	//Enveloppe Structure Memoire
+	Envelope_Param_t EnvParam;
+	EnvParam.Attack = 1000;
+	EnvParam.Decay = 5000;
+	EnvParam.Sustain = 0.1;
+	EnvParam.Release = 20000;
 
 
 	/* Initialize LEDS */
@@ -214,22 +220,26 @@ int main(void) {
 		 HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15);
 		 HAL_Delay(1000);
 		 */
+		// Read button push state
+		BP = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0);
+		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, BP);
+
 		if (Exec_flg == 1) {
 			//RaZ Exec_flg
 			Exec_flg = 0;
 
 			//Code a exec
 			OutputValue1 = Oscillator(frequency, &Param1, &Mem1);
-			OutputValue2 = Oscillator(frequency, &Param2, &Mem2);
+
+			OutputValue4 = Envelope(BP, &EnvParam, &EnvMem);
 
 			Tranches[0].Value = OutputValue1;
-			Tranches[1].Value = OutputValue2;
 
-			OutputValue3 = Mixer(Tranches, G_OUT, TRANCHES_MAX);
+			OutputValue3 = Mixer(Tranches, G_OUT, TRANCHES_MAX)*OutputValue4;
 
 			// conversion float to decimal pour le DAC (prise en compte next interruption)
 			//1/50000 Hz de retard de phase (négligeable)
-			myDacValue = (OutputValue3 + 1) * 127;
+			myDacValue = (OutputValue3 + 1) * 255;
 		}
 
 	}
