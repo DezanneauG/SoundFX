@@ -3,6 +3,10 @@
 
 #endif /* OSCILLATOR_H_ */
 
+enum {
+	SINE = 1, SAWTOOTH, TRIANGLE, SQUARE
+};
+
 typedef struct OscillatorMem{   //Structure Memoire Oscillator
   float Frequency;      //frequence de la note precedente
   float Compteur;       //Compteur
