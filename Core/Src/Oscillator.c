@@ -23,9 +23,9 @@ float Oscillator(float Frequency, OscillatorParam_t *Param,
 	 */
 	//compteur
 	if (Compteur < 2) {
-		Compteur += Frequency;  //Peut engendrer des problemes d'intégration
+		Compteur += 2*Frequency;  //Peut engendrer des problemes d'intégration
 	} else {
-		Compteur = 0;
+		Compteur = Frequency;
 	}
 	//Normalisation output entre -1 et 1
 	Output = Compteur - 1;
