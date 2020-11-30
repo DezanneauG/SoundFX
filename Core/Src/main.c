@@ -27,9 +27,7 @@
  https://www.mouser.com/ds/2/76/CS43L22_F2-1142121.pdf
  2) ST opensource CS43L22 Audio Codec dsp drivers.
  3) Sourcing by an internet youtube video
-
  * Copyright (C) 2020 - T.DOMINGUEZ
-
  Work in progress
  */
 /* USER CODE END Header */
@@ -42,6 +40,7 @@
 #include "Oscillator.h"
 #include "Mixer.h"
 #include "Envelope.h"
+#include "Note.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -77,10 +76,12 @@ TIM_HandleTypeDef htim2;
 #define PI 3.14159f
 // Sample rate
 #define F_SAMPLE	50000.0f
+//Tunig frequency A4 = 440Hz
+#define F_TUNING	440.0f
 //Output Frequency (for test)
-#define F_OUT		500.0f
+#define F_OUT		440.0f
 //Output Gain set such that ears dont bleed
-#define G_OUT		0.3f
+#define G_OUT		0.1f
 #define TRANCHES_MAX 2
 
 /* USER CODE END PV */
@@ -106,7 +107,8 @@ uint16_t I2S_dummy[4];
 
 /* GLOBAL INTERRUPTION FLAG */
 int Exec_flg;
-
+/* Global Note Value */
+int Note_Val;
 /* USER CODE END 0 */
 
 /**
@@ -114,51 +116,6 @@ int Exec_flg;
  * @retval int
  */
 int main(void) {
-	/* USER CODE BEGIN 1 */
-	//float sample_dt;
-	//uint16_t sample_N;
-	float frequency;
-	int BP;
-
-	//Synthesizer variables
-	float OutputValue1, OutputValue3, OutputValue4;
-
-	//Init Exec_flg
-	Exec_flg = 0;
-
-	//Init DAC Value
-	myDacValue = 0;
-
-	//sample_dt = F_OUT / F_SAMPLE;
-	//sample_N = F_SAMPLE / F_OUT;
-	frequency = F_OUT / F_SAMPLE;
-
-	//Parameters and Memory for VCO 1
-	OscillatorParam_t Param1;
-	Param1.Alpha = 1;
-	Param1.WaveType = SAWTOOTH;
-	OscillatorMem_t Mem1;
-	Mem1.Compteur = 0;
-	Mem1.Frequency = F_OUT / F_SAMPLE;
-
-	//Tranche Structures
-	Tranche_t Tranches[TRANCHES_MAX];
-	Tranches[0].Gain = 0.9;
-
-	//Enveloppe Structure Memoire
-	Envelope_Mem_t EnvMem;
-	EnvMem.Compteur = 0;
-	EnvMem.Phase = OFF;
-	EnvMem.Note = 0;
-
-	//Enveloppe Structure Memoire
-	Envelope_Param_t EnvParam;
-	EnvParam.Attack = 1000;
-	EnvParam.Decay = 5000;
-	EnvParam.Sustain = 0.1;
-	EnvParam.Release = 20000;
-
-
 	/* Initialize LEDS */
 
 	/* USER CODE END 1 */
@@ -209,10 +166,78 @@ int main(void) {
 
 	/* USER CODE END 2 */
 
-	/* Infinite loop */
-	/* USER CODE BEGIN WHILE */
+	//Init led temoin
+	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, 0);//BP
+	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, 1);//Init
+	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, 1);//Loop off
+	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, 0);//Loop on
+
+	//Init code Midi Notes to Hz (may take long to exec)
+	//
+	/*
+	int i;
+	float F;
+	midiNote_t Midi_Tab[127];
+	for (i = 0; i < 128; i++) {
+		F = pow(2, ((i - 69) / 12)) * F_TUNING;
+		Midi_Tab[i].frequency = F / F_SAMPLE;
+		Midi_Tab[i].period = F_SAMPLE / F;
+	}
+	*/
+	//
+	//float sample_dt;
+	//uint16_t sample_N;
+	float frequency;
+	int BP;
+
+	//Synthesizer variables
+	float OutputValue1, OutputValue3, OutputValue4;
+
+	//Init Exec_flg
+	Exec_flg = 0;
+
+	//Init  Note_Val
+	//Note_Val = 100;
+	//Init DAC Value
+	myDacValue = 0;
+
+	//sample_dt = F_OUT / F_SAMPLE;
+	//sample_N = F_SAMPLE / F_OUT;
+	frequency = F_OUT / F_SAMPLE;
+
+	//Parameters and Memory for VCO 1
+	OscillatorParam_t Param1;
+	Param1.Alpha = 1;
+	Param1.WaveType = SAWTOOTH;
+	OscillatorMem_t Mem1;
+	Mem1.Compteur = 0;
+	Mem1.Frequency = F_OUT / F_SAMPLE;
+
+	//Tranche Structures
+	Tranche_t Tranches[TRANCHES_MAX];
+	Tranches[0].Gain = 0.9;
+
+	//Enveloppe Structure Memoire
+	Envelope_Mem_t EnvMem;
+	EnvMem.Compteur = 0;
+	EnvMem.Phase = OFF;
+	EnvMem.Note = 0;
+
+	//Enveloppe Structure Memoire
+	Envelope_Param_t EnvParam;
+	EnvParam.Attack = 10000;
+	EnvParam.Decay = 500;
+	EnvParam.Sustain = 0.5;
+	EnvParam.Release = 20000;
+
+	//Init end led toggle
+	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, 0);
 
 	while (1) {
+		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, 0);//Loop
+		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, 1);//Loop
+
+		//HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15);
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
@@ -229,13 +254,14 @@ int main(void) {
 			Exec_flg = 0;
 
 			//Code a exec
+			//frequency = Midi_Tab[Note_Val].frequency;
 			OutputValue1 = Oscillator(frequency, &Param1, &Mem1);
 
 			OutputValue4 = Envelope(BP, &EnvParam, &EnvMem);
 
 			Tranches[0].Value = OutputValue1;
 
-			OutputValue3 = Mixer(Tranches, G_OUT, TRANCHES_MAX)*OutputValue4;
+			OutputValue3 = Mixer(Tranches, G_OUT, TRANCHES_MAX) * OutputValue4;
 
 			// conversion float to decimal pour le DAC (prise en compte next interruption)
 			//1/50000 Hz de retard de phase (négligeable)
