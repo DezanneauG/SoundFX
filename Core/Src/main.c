@@ -37,10 +37,12 @@
 #include <math.h>
 
 //Synths Functions
-#include "Oscillator.h"
-#include "Mixer.h"
 #include "Envelope.h"
+#include "Oscillator.h"
+#include "Operator.h"
+#include "Mixer.h"
 #include "Note.h"
+#include "FM.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -167,31 +169,31 @@ int main(void) {
 	/* USER CODE END 2 */
 
 	//Init led temoin
-	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, 0);//BP
-	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, 1);//Init
-	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, 1);//Loop off
-	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, 0);//Loop on
+	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, 0);		//BP
+	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, 1);		//Init
+	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, 1);		//Loop off
+	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, 0);		//Loop on
 
 	//Init code Midi Notes to Hz (may take long to exec)
 	//
 	/*
-	int i;
-	float F;
-	midiNote_t Midi_Tab[127];
-	for (i = 0; i < 128; i++) {
-		F = pow(2, ((i - 69) / 12)) * F_TUNING;
-		Midi_Tab[i].frequency = F / F_SAMPLE;
-		Midi_Tab[i].period = F_SAMPLE / F;
-	}
-	*/
+	 int i;
+	 float F;
+	 midiNote_t Midi_Tab[127];
+	 for (i = 0; i < 128; i++) {
+	 F = pow(2, ((i - 69) / 12)) * F_TUNING;
+	 Midi_Tab[i].frequency = F / F_SAMPLE;
+	 Midi_Tab[i].period = F_SAMPLE / F;
+	 }
+	 */
 	//
 	//float sample_dt;
 	//uint16_t sample_N;
-	float frequency;
+	float frequency, frequency1, frequency2;
 	int BP;
 
 	//Synthesizer variables
-	float OutputValue1, OutputValue3, OutputValue4;
+	float OutputValue1, OutputValue2, OutputValue3, OutputValue4;
 
 	//Init Exec_flg
 	Exec_flg = 0;
@@ -204,38 +206,62 @@ int main(void) {
 	//sample_dt = F_OUT / F_SAMPLE;
 	//sample_N = F_SAMPLE / F_OUT;
 	frequency = F_OUT / F_SAMPLE;
+	frequency1 = frequency/10;
 
-	//Parameters and Memory for VCO 1
-	OscillatorParam_t Param1;
-	Param1.Alpha = 1;
-	Param1.WaveType = SAWTOOTH;
-	OscillatorMem_t Mem1;
-	Mem1.Compteur = 0;
-	Mem1.Frequency = F_OUT / F_SAMPLE;
+	//Parameters and Memory for Operator1
+	//Memoire
+	OperatorMem_t OP1Mem;
+	//Oscillator
+	OP1Mem.CompteurOsc = 0;
+	OP1Mem.Frequency = frequency1;
+	//Envelope
+	OP1Mem.CompteurEnv = 0;
+	OP1Mem.Phase = OFF;
+	OP1Mem.Note = 0;
+
+	//Params
+	OperatorParam_t OP1Param;
+	//Oscillator
+	OP1Param.WaveType = SINE;
+	OP1Param.Alpha = 1;
+	//Enveloppe
+	OP1Param.Attack = 10000;
+	OP1Param.Decay = 500;
+	OP1Param.Sustain = 0.5;
+	OP1Param.Release = 20000;
+
+	//Parameters and Memory for Operator2
+	//Memoire
+	OperatorMem_t OP2Mem;
+	//Oscillator
+	OP2Mem.CompteurOsc = 0;
+	OP2Mem.Frequency = frequency1;
+	//Envelope
+	OP2Mem.CompteurEnv = 0;
+	OP2Mem.Phase = OFF;
+	OP2Mem.Note = 0;
+
+	//Params
+	OperatorParam_t OP2Param;
+	//Oscillator
+	OP2Param.WaveType = SINE;
+	OP2Param.Alpha = 0.9;
+	//Enveloppe
+	OP2Param.Attack = 100;
+	OP2Param.Decay = 50;
+	OP2Param.Sustain = 0.1;
+	OP2Param.Release = 200;
 
 	//Tranche Structures
 	Tranche_t Tranches[TRANCHES_MAX];
 	Tranches[0].Gain = 0.9;
 
-	//Enveloppe Structure Memoire
-	Envelope_Mem_t EnvMem;
-	EnvMem.Compteur = 0;
-	EnvMem.Phase = OFF;
-	EnvMem.Note = 0;
-
-	//Enveloppe Structure Memoire
-	Envelope_Param_t EnvParam;
-	EnvParam.Attack = 10000;
-	EnvParam.Decay = 500;
-	EnvParam.Sustain = 0.5;
-	EnvParam.Release = 20000;
-
 	//Init end led toggle
 	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, 0);
 
 	while (1) {
-		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, 0);//Loop
-		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, 1);//Loop
+		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, 0);	//Loop
+		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, 1);	//Loop
 
 		//HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15);
 		/* USER CODE END WHILE */
@@ -255,17 +281,19 @@ int main(void) {
 
 			//Code a exec
 			//frequency = Midi_Tab[Note_Val].frequency;
-			OutputValue1 = Oscillator(frequency, &Param1, &Mem1);
+			OutputValue1 = Operator(BP, frequency1, OP1Param, &OP1Mem);
 
-			OutputValue4 = Envelope(BP, &EnvParam, &EnvMem);
+			frequency2 = FM(OutputValue1, frequency, 1);
 
-			Tranches[0].Value = OutputValue1;
+			OutputValue2 = Operator(BP, frequency2, OP2Param, &OP2Mem);
 
-			OutputValue3 = Mixer(Tranches, G_OUT, TRANCHES_MAX) * OutputValue4;
+			Tranches[0].Value = OutputValue2;
+
+			OutputValue4 = Mixer(Tranches, G_OUT, TRANCHES_MAX);
 
 			// conversion float to decimal pour le DAC (prise en compte next interruption)
 			//1/50000 Hz de retard de phase (négligeable)
-			myDacValue = (OutputValue3 + 1) * 255;
+			myDacValue = (OutputValue4 + 1) * 255;
 		}
 
 	}
