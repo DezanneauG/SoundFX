@@ -1,7 +1,7 @@
 #include "Oscillator.h"
 #include <math.h>
 
-#define PI 3.14159f
+#define PI 3.1415926535f
 
 float Oscillator(float Frequency, OscillatorParam_t *Param,
 		OscillatorMem_t *Memory) {
@@ -22,7 +22,7 @@ float Oscillator(float Frequency, OscillatorParam_t *Param,
 	 }
 	 */
 	//compteur
-	if (Compteur < 2) {
+	if (Compteur <= 2) {
 		Compteur += 2*Frequency;  //Peut engendrer des problemes d'intégration
 	} else {
 		Compteur = Frequency;
@@ -52,7 +52,7 @@ float Oscillator(float Frequency, OscillatorParam_t *Param,
 		}
 		break;
 	default: //Sinus
-		Output = sinf(Output * 2 * PI);
+		Output = sinf(Output * PI);
 		Output = Sat(Output, Param->Alpha);
 		break;
 	}
