@@ -83,8 +83,8 @@ TIM_HandleTypeDef htim2;
 //Output Frequency (for test)
 #define F_OUT		440.0f
 //Output Gain set such that ears dont bleed
-#define G_OUT		0.1f
-#define TRANCHES_MAX 2
+#define G_OUT		50.0f
+#define TRANCHES_MAX 1
 
 /* USER CODE END PV */
 
@@ -148,9 +148,9 @@ int main(void) {
 	/* USER CODE BEGIN 2 */
 
 	/* 			INITIALISATION CS43L22				*/
-
+	// DAC
 	CS43_Init(hi2c1, MODE_ANALOG); // configuration des registres du composant CS43L22 	: 	select mode ANALOG
-	CS43_SetVolume(50);	// configuration des registres du composant CS43L22 	: 	choose Volume level
+	CS43_SetVolume(G_OUT);// configuration des registres du composant CS43L22 	: 	choose Volume level
 	CS43_Enable_RightLeft(CS43_RIGHT_LEFT);	// configuration des registres du composant CS43L22 	: 	choose Audio mode == stereo
 	CS43_Start();
 
@@ -174,6 +174,9 @@ int main(void) {
 	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, 1);		//Loop off
 	HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, 0);		//Loop on
 
+	//Rend la phase d'init visible sur les leds
+	HAL_Delay(500);
+
 	//Init code Midi Notes to Hz (may take long to exec)
 	//
 	/*
@@ -193,7 +196,7 @@ int main(void) {
 	int BP;
 
 	//Synthesizer variables
-	float OutputValue1, OutputValue2, OutputValue3, OutputValue4;
+	float OutputValue1, OutputValue2, OutputValue3;
 
 	//Init Exec_flg
 	Exec_flg = 0;
@@ -206,7 +209,7 @@ int main(void) {
 	//sample_dt = F_OUT / F_SAMPLE;
 	//sample_N = F_SAMPLE / F_OUT;
 	frequency = F_OUT / F_SAMPLE;
-	frequency1 = frequency/10;
+	frequency1 = frequency / 10;
 
 	//Parameters and Memory for Operator1
 	//Memoire
@@ -279,8 +282,11 @@ int main(void) {
 			//RaZ Exec_flg
 			Exec_flg = 0;
 
+			//		2 Operator Code		//
 			//Code a exec
 			//frequency = Midi_Tab[Note_Val].frequency;
+
+			/*
 			OutputValue1 = Operator(BP, frequency1, OP1Param, &OP1Mem);
 
 			frequency2 = FM(OutputValue1, frequency, 1);
@@ -289,11 +295,27 @@ int main(void) {
 
 			Tranches[0].Value = OutputValue2;
 
-			OutputValue4 = Mixer(Tranches, G_OUT, TRANCHES_MAX);
+			OutputValue3 = Mixer(Tranches, TRANCHES_MAX);
+
+			*/
+			//		1 Operator Sine Code 	//
+
+			//Parameters and Memory for Operator1
+			//Params
+			OperatorParam_t OP1Param;
+			//Oscillator
+			OP1Param.WaveType = SQUARE;
+			OP1Param.Alpha = 0.5;
+			//Enveloppe
+			OP1Param.Attack = 10;
+			OP1Param.Decay = 10;
+			OP1Param.Sustain = 1;
+			OP1Param.Release = 10;
+			OutputValue3 = Operator(BP, frequency, OP1Param, &OP1Mem);
 
 			// conversion float to decimal pour le DAC (prise en compte next interruption)
 			//1/50000 Hz de retard de phase (négligeable)
-			myDacValue = (OutputValue4 + 1) * 255;
+			myDacValue = (OutputValue3 + 1) * 127;
 		}
 
 	}

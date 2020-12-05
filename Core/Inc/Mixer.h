@@ -10,4 +10,4 @@ typedef struct Tranche{   //Structure Tranche
 
 
 //Prototype fonction Mixer
-float Mixer(Tranche_t[], float, int);
+float Mixer(Tranche_t[], int);
